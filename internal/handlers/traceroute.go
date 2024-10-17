@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os/exec"
 	"regexp"
@@ -115,7 +116,8 @@ func (h *TracerouteHandler) parseTracerouteOutput(output string) ([]models.Hop, 
 	lines := strings.Split(output, "\n")
 	var hops []models.Hop
 
-	for _, line := range lines {
+	// Skip the first line (header)
+	for _, line := range lines[1:] {
 		if line == "" {
 			continue
 		}
@@ -132,21 +134,33 @@ func (h *TracerouteHandler) parseTracerouteOutput(output string) ([]models.Hop, 
 			continue
 		}
 
-		// Extract IPs and RTTs
 		var ips []string
 		var rtts []string
-		ipRegex := regexp.MustCompile(`\(([^\)]+)\)`)
-		rttRegex := regexp.MustCompile(`\d+\.?\d* ms`)
 
-		ipMatches := ipRegex.FindAllStringSubmatch(line, -1)
-		for _, match := range ipMatches {
-			if len(match) > 1 {
-				ips = append(ips, match[1])
+		// Process fields after hop number
+		for i := 1; i < len(fields); i++ {
+			field := fields[i]
+
+			// Skip asterisks
+			if field == "*" {
+				continue
+			}
+
+			// If field ends with "ms", it's an RTT
+			if strings.HasSuffix(field, "ms") {
+				rtts = append(rtts, field)
+			} else {
+				// If it's not an RTT and not an asterisk, it's an IP
+				// Remove any trailing dots
+				field = strings.TrimSuffix(field, "")
+				if net.ParseIP(field) != nil {
+					ips = append(ips, field)
+				}
 			}
 		}
 
-		rttMatches := rttRegex.FindAllString(line, -1)
-		rtts = append(rtts, rttMatches...)
+		// Remove duplicates from IPs
+		ips = removeDuplicates(ips)
 
 		hop := models.Hop{
 			Number: hopNumber,
@@ -157,6 +171,19 @@ func (h *TracerouteHandler) parseTracerouteOutput(output string) ([]models.Hop, 
 	}
 
 	return hops, nil
+}
+
+// Helper function to remove duplicate strings from a slice
+func removeDuplicates(slice []string) []string {
+	keys := make(map[string]bool)
+	list := []string{}
+	for _, entry := range slice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
 
 func (h *TracerouteHandler) generateBackendInsight(hops []models.Hop, executionTime time.Duration) string {
