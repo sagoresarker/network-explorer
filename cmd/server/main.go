@@ -18,12 +18,12 @@ func main() {
 	http.HandleFunc("/journey", handlers.EnableCORS(journeyHandler.Handle))
 
 	server := &http.Server{
-		Addr:         ":8080",
+		Addr:         ":8090",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 45 * time.Second,
 	}
 
-	log.Println("Server is running on http://localhost:8080")
+	log.Println("Server is running on http://localhost:8090")
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}

@@ -101,7 +101,7 @@ func (h *TracerouteHandler) runTraceroute(domain string) (string, error) {
 		return "", fmt.Errorf("invalid domain format")
 	}
 
-	cmd := exec.CommandContext(ctx, "traceroute", domain)
+	cmd := exec.CommandContext(ctx, "traceroute", "-I", domain)
 	output, err := cmd.Output()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {

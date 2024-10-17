@@ -1,4 +1,3 @@
-// handlers/journey.go
 package handlers
 
 import (
@@ -6,14 +5,15 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptrace"
-	"strings"
 	"time"
 
 	"github.com/miekg/dns"
 	"github.com/sagoresarker/traceroute-go-portfolio/internal/models"
+	"github.com/sagoresarker/traceroute-go-portfolio/internal/utils"
 )
 
 type JourneyHandler struct {
@@ -127,7 +127,9 @@ func (h *JourneyHandler) collectJourneyData(ctx context.Context, host string, or
 		},
 		TLSHandshakeDone: func(state tls.ConnectionState, err error) {
 			tlsDone = time.Now()
-			if err == nil {
+			if err != nil {
+				log.Printf("TLS Handshake error: %v", err)
+			} else {
 				tlsVersion = state.Version
 				tlsCipherSuite = state.CipherSuite
 			}
@@ -157,7 +159,7 @@ func (h *JourneyHandler) collectJourneyData(ctx context.Context, host string, or
 	tcpTime := connectDone.Sub(connectStart)
 	journey.TCPConnection = models.TCPConnection{
 		HandshakeTimeMs: int(tcpTime.Milliseconds()),
-		ClientIP:        getClientIP(originalReq),
+		ClientIP:        utils.GetClientIP(originalReq),
 		ServerIP:        serverIP,
 		Port:            443,
 	}
@@ -167,7 +169,7 @@ func (h *JourneyHandler) collectJourneyData(ctx context.Context, host string, or
 	tlsTime := tlsDone.Sub(tlsStart)
 	journey.TLSHandshake = models.TLSHandshake{
 		HandshakeTimeMs: int(tlsTime.Milliseconds()),
-		TLSVersion:      getTLSVersionString(tlsVersion),
+		TLSVersion:      utils.GetTLSVersionString(tlsVersion),
 		CipherSuite:     tls.CipherSuiteName(tlsCipherSuite),
 	}
 	journey.TotalTime.TLSHandshakeTimeMs = int(tlsTime.Milliseconds())
@@ -178,7 +180,7 @@ func (h *JourneyHandler) collectJourneyData(ctx context.Context, host string, or
 		RequestTimeMs: int(requestTime.Milliseconds()),
 		Method:        req.Method,
 		Path:          req.URL.Path,
-		Headers:       convertHeaders(req.Header),
+		Headers:       utils.ConvertHeaders(req.Header),
 	}
 	journey.TotalTime.HTTPRequestTimeMs = int(requestTime.Milliseconds())
 
@@ -200,7 +202,7 @@ func (h *JourneyHandler) collectJourneyData(ctx context.Context, host string, or
 	journey.HTTPResponse = models.HTTPResponse{
 		ResponseTimeMs: int(responseTime.Milliseconds()),
 		StatusCode:     resp.StatusCode,
-		Headers:        convertHeaders(resp.Header),
+		Headers:        utils.ConvertHeaders(resp.Header),
 	}
 	journey.TotalTime.HTTPResponseTimeMs = int(responseTime.Milliseconds())
 
@@ -211,55 +213,77 @@ func (h *JourneyHandler) performDNSLookup(ctx context.Context, hostname string) 
 	dnsResolution := &models.DNSResolution{}
 	startTime := time.Now()
 
-	// Check local cache first
-	localCacheStart := time.Now()
-	_, err := net.DefaultResolver.LookupHost(ctx, hostname)
-	localCacheTime := time.Since(localCacheStart)
-
-	dnsResolution.Steps.LocalCache = models.CacheStep{
-		Status: "hit",
-		TimeMs: int(localCacheTime.Milliseconds()),
+	// Step 1: Query root servers
+	rootServers := []string{
+		"198.41.0.4",   // a.root-servers.net
+		"199.9.14.201", // b.root-servers.net
+		"192.33.4.12",  // c.root-servers.net
+		// Add more root servers as needed
 	}
 
-	if err != nil {
-		dnsResolution.Steps.LocalCache.Status = "miss"
-	}
-
-	// Perform recursive query
-	recursiveStart := time.Now()
 	msg := new(dns.Msg)
 	msg.SetQuestion(dns.Fqdn(hostname), dns.TypeA)
+	msg.RecursionDesired = false
 
-	// Use Google's DNS server
-	resp, rtt, err := h.dnsResolver.Exchange(msg, "8.8.8.8:53")
-	recursiveTime := time.Since(recursiveStart)
+	var resp *dns.Msg
+	var err error
+	var rtt time.Duration
 
-	dnsResolution.Steps.RecursiveQuery = models.RecursiveQueryStep{
-		Status:     "success",
-		ResolverIP: "8.8.8.8",
-		TimeMs:     int(recursiveTime.Milliseconds()),
-	}
-
-	if err != nil {
-		dnsResolution.Steps.RecursiveQuery.Status = "failed"
-	}
-
-	// Get authoritative nameserver information
-	if resp != nil && len(resp.Answer) > 0 {
-		for _, ans := range resp.Answer {
-			if a, ok := ans.(*dns.A); ok {
-				dnsResolution.Steps.AuthoritativeNameserver = models.AuthoritativeStep{
-					Status:   "success",
-					ServerIP: a.A.String(),
-					TimeMs:   int(rtt.Milliseconds()),
-				}
-				break
+	// Query root servers
+	for _, rootServer := range rootServers {
+		resp, rtt, err = h.dnsResolver.Exchange(msg, rootServer+":53")
+		if err == nil && len(resp.Answer) > 0 {
+			dnsResolution.Steps.RootNameserver = models.NameserverStep{
+				Status:   "success",
+				ServerIP: rootServer,
+				TimeMs:   int(rtt.Milliseconds()),
 			}
+			break
 		}
 	}
 
+	if err != nil {
+		return nil, fmt.Errorf("failed to query root servers: %v", err)
+	}
+
+	// Step 2: Query TLD servers
+	tldServers := utils.ExtractNameservers(resp)
+	for _, tldServer := range tldServers {
+		resp, rtt, err = h.dnsResolver.Exchange(msg, tldServer+":53")
+		if err == nil && len(resp.Answer) > 0 {
+			dnsResolution.Steps.TLDNameserver = models.NameserverStep{
+				Status:   "success",
+				ServerIP: tldServer,
+				TimeMs:   int(rtt.Milliseconds()),
+			}
+			break
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query TLD servers: %v", err)
+	}
+
+	// Step 3: Query authoritative nameservers
+	authServers := utils.ExtractNameservers(resp)
+	for _, authServer := range authServers {
+		resp, rtt, err = h.dnsResolver.Exchange(msg, authServer+":53")
+		if err == nil && len(resp.Answer) > 0 {
+			dnsResolution.Steps.AuthoritativeNameserver = models.AuthoritativeStep{
+				Status:   "success",
+				ServerIP: authServer,
+				TimeMs:   int(rtt.Milliseconds()),
+			}
+			break
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query authoritative servers: %v", err)
+	}
+
 	// Check DNSSEC
-	if resp != nil && resp.AuthenticatedData {
+	if resp.AuthenticatedData {
 		dnsResolution.Steps.DNSSECStatus = "valid"
 	} else {
 		dnsResolution.Steps.DNSSECStatus = "unsigned"
@@ -268,44 +292,4 @@ func (h *JourneyHandler) performDNSLookup(ctx context.Context, hostname string) 
 	dnsResolution.LookupTimeMs = int(time.Since(startTime).Milliseconds())
 
 	return dnsResolution, nil
-}
-
-func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header
-	forwarded := r.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		return strings.Split(forwarded, ",")[0]
-	}
-
-	// Get IP from RemoteAddr
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return ip
-}
-
-func convertHeaders(headers http.Header) map[string]string {
-	result := make(map[string]string)
-	for name, values := range headers {
-		if len(values) > 0 {
-			result[name] = values[0]
-		}
-	}
-	return result
-}
-
-func getTLSVersionString(version uint16) string {
-	switch version {
-	case tls.VersionTLS10:
-		return "TLS 1.0"
-	case tls.VersionTLS11:
-		return "TLS 1.1"
-	case tls.VersionTLS12:
-		return "TLS 1.2"
-	case tls.VersionTLS13:
-		return "TLS 1.3"
-	default:
-		return "Unknown"
-	}
 }

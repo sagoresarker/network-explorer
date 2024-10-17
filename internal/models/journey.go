@@ -1,4 +1,3 @@
-// models/journey.go
 package models
 
 type VisitorJourney struct {
@@ -12,8 +11,20 @@ type VisitorJourney struct {
 }
 
 type DNSResolution struct {
-	LookupTimeMs int   `json:"lookup_time_ms"`
-	Steps        Steps `json:"steps"`
+	LookupTimeMs int `json:"lookup_time_ms"`
+	Steps        struct {
+		LocalCache              CacheStep         `json:"local_cache"`
+		RootNameserver          NameserverStep    `json:"root_nameserver"`
+		TLDNameserver           NameserverStep    `json:"tld_nameserver"`
+		AuthoritativeNameserver AuthoritativeStep `json:"authoritative_nameserver"`
+		DNSSECStatus            string            `json:"dnssec_status"`
+	} `json:"steps"`
+}
+
+type NameserverStep struct {
+	Status   string `json:"status"`
+	ServerIP string `json:"server_ip"`
+	TimeMs   int    `json:"time_ms"`
 }
 
 type Steps struct {
@@ -34,11 +45,6 @@ type RecursiveQueryStep struct {
 	Status     string `json:"status"`
 	ResolverIP string `json:"resolver_ip"`
 	TimeMs     int    `json:"time_ms"`
-}
-
-type NameserverStep struct {
-	Status string `json:"status"`
-	TimeMs int    `json:"time_ms"`
 }
 
 type AuthoritativeStep struct {
