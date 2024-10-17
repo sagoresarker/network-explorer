@@ -11,9 +11,11 @@ import (
 func main() {
 	tracerouteHandler := handlers.NewTracerouteHandler()
 	healthHandler := handlers.NewHealthHandler()
+	journeyHandler := handlers.NewJourneyHandler()
 
 	http.HandleFunc("/health", healthHandler.Handle)
 	http.HandleFunc("/traceroute", handlers.EnableCORS(tracerouteHandler.Handle))
+	http.HandleFunc("/journey", handlers.EnableCORS(journeyHandler.Handle))
 
 	server := &http.Server{
 		Addr:         ":8080",
