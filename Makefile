@@ -23,8 +23,8 @@ build: ## Build the application containers
 
 run: ## Run the application
 	@echo "${COLOR_GREEN}Starting application...${COLOR_RESET}"
-	docker-compose -f $(COMPOSE_FILE) up -d
-	@echo "${COLOR_YELLOW}Application is running at http://localhost:8080${COLOR_RESET}"
+	docker-compose -f $(COMPOSE_FILE) up
+	@echo "${COLOR_YELLOW}Application is running at http://localhost:8090${COLOR_RESET}"
 
 stop: ## Stop the application
 	@echo "${COLOR_GREEN}Stopping application...${COLOR_RESET}"
@@ -47,3 +47,12 @@ restart: stop run ## Restart the application
 ps: ## Show running containers
 	@echo "${COLOR_GREEN}Showing running containers...${COLOR_RESET}"
 	docker-compose -f $(COMPOSE_FILE) ps
+
+build-host:
+	@echo "${COLOR_GREEN}Building application containers with host network...${COLOR_RESET}"
+	docker build -t traceroute-app .
+
+run-host:
+	@echo "${COLOR_GREEN}Starting application with host network...${COLOR_RESET}"
+	docker run -p 8090:8090 --network host traceroute-app
+

@@ -1,0 +1,101 @@
+HTTP/1.1 200 OK
+Access-Control-Allow-Headers: Content-Type
+Access-Control-Allow-Methods: GET, OPTIONS
+Access-Control-Allow-Origin: *
+Content-Type: application/json
+Date: Thu, 17 Oct 2024 14:34:08 GMT
+Content-Length: 839
+
+{
+  "domain": "google.com",
+  "hops": [
+    {
+      "number": 2,
+      "ips": [
+        "192.168.240.1"
+      ],
+      "rtts": [
+        "ms",
+        "ms",
+        "ms"
+      ]
+    },
+    {
+      "number": 3,
+      "ips": [
+        "100.64.3.185"
+      ],
+      "rtts": [
+        "ms",
+        "ms",
+        "ms"
+      ]
+    },
+    {
+      "number": 4,
+      "ips": [
+        "10.56.78.5"
+      ],
+      "rtts": [
+        "ms",
+        "ms",
+        "ms"
+      ]
+    },
+    {
+      "number": 5,
+      "ips": [],
+      "rtts": [
+        "ms",
+        "ms",
+        "ms"
+      ]
+    },
+    {
+      "number": 6,
+      "ips": [
+        "72.14.217.84"
+      ],
+      "rtts": [
+        "ms",
+        "ms",
+        "ms"
+      ]
+    },
+    {
+      "number": 7,
+      "ips": [
+        "142.250.209.75"
+      ],
+      "rtts": [
+        "ms",
+        "ms",
+        "ms"
+      ]
+    },
+    {
+      "number": 8,
+      "ips": [
+        "142.251.55.31"
+      ],
+      "rtts": [
+        "ms",
+        "ms",
+        "ms"
+      ]
+    },
+    {
+      "number": 9,
+      "ips": [],
+      "rtts": [
+        "ms",
+        "ms"
+      ]
+    }
+  ],
+  "total_hops": 8,
+  "execution_time": "6.519s",
+  "backend_insight": "👨‍💻 Backend Peek: Your request just traversed 8 network hops in 6.519s! Each hop represents a router in the vast internet infrastructure. This is how every piece of data you consume online finds its way to you.",
+  "network_journey": "Network Journey: Path traced! 🎯",
+  "cache_status": "MISS"
+}

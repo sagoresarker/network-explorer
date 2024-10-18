@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sagoresarker/traceroute-go-portfolio/internal/models"
+	"github.com/sagoresarker/network-explorer/internal/models"
 )
 
 type Cache struct {

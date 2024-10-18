@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sagoresarker/traceroute-go-portfolio/internal/cache"
-	"github.com/sagoresarker/traceroute-go-portfolio/internal/models"
-	"github.com/sagoresarker/traceroute-go-portfolio/internal/ratelimit"
+	"github.com/sagoresarker/network-explorer/internal/cache"
+	"github.com/sagoresarker/network-explorer/internal/models"
+	"github.com/sagoresarker/network-explorer/internal/ratelimit"
 )
 
 type TracerouteHandler struct {
@@ -26,11 +26,12 @@ type TracerouteHandler struct {
 func NewTracerouteHandler() *TracerouteHandler {
 	return &TracerouteHandler{
 		cache:       cache.NewCache(10 * time.Minute),
-		rateLimiter: ratelimit.NewRateLimiter(time.Minute, 10), // 10 requests per minute
+		rateLimiter: ratelimit.NewRateLimiter(time.Minute, 30),
 	}
 }
 
 func (h *TracerouteHandler) Handle(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received request to /traceroute")
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -48,6 +49,7 @@ func (h *TracerouteHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Received request to /traceroute with domain: %s", domain)
 	startTime := time.Now()
 
 	// Check cache first
@@ -64,11 +66,15 @@ func (h *TracerouteHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Traceroute output: %s", output)
+
 	hops, err := h.parseTracerouteOutput(output)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error parsing traceroute output: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("Parsed hops: %v", hops)
 
 	executionTime := time.Since(startTime)
 
@@ -81,6 +87,8 @@ func (h *TracerouteHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		NetworkJourney: h.generateNetworkJourney(hops),
 		CacheStatus:    "MISS",
 	}
+
+	log.Printf("Response: %v", response)
 
 	// Cache the response
 	h.cache.Set(domain, response)

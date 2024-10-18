@@ -1,10 +1,18 @@
 ### Request to /traceroute endpoint
 GET http://localhost:8090/traceroute?domain=google.com
 
+
+### Request to /traceroute endpoint
+GET http://172.21.0.2:8090/traceroute?domain=google.com
+
+
 ### Request to /journey endpoint
 GET http://localhost:8090/journey
 Host: prothomalo.com
 Content-Type: application/json
 
 ### Request to /health endpoint
-GET http://localhost:8089/health
+GET http://localhost:8090/health
+
+### Request to /health endpoint
+GET http://172.21.0.2:8090/health

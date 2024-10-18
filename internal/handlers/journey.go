@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	"github.com/sagoresarker/traceroute-go-portfolio/internal/models"
-	"github.com/sagoresarker/traceroute-go-portfolio/internal/utils"
+	"github.com/sagoresarker/network-explorer/internal/models"
+	"github.com/sagoresarker/network-explorer/internal/utils"
 )
 
 type JourneyHandler struct {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sagoresarker/traceroute-go-portfolio/internal/handlers"
+	"github.com/sagoresarker/network-explorer/internal/handlers"
 )
 
 func main() {
